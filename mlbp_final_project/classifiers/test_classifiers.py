@@ -7,6 +7,7 @@ from sklearn.model_selection import KFold
 from sklearn.exceptions import ConvergenceWarning
 import warnings
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
 
 
 import mlbp_final_project.utils.data_loader as data_loader
@@ -14,7 +15,7 @@ import mlbp_final_project.utils.data_loader as data_loader
 
 LOG_REG_SOLVER = 'liblinear'  # 'newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga'
 MULTICLASS = 'multinomial'  # 'ovr', 'multinomial'
-N_ITERATIONS = 500
+N_ITERATIONS = 200
 
 
 def print_data_line(line, name, acc_val, log_loss_val):
@@ -57,8 +58,8 @@ def log_reg_combo_class(class_weights, predict_proba, y_predict, classes_log_reg
     best_factor_mult_lloss = np.nan
     best_factor_norm_lloss = np.nan
 
-    for factor_mult in np.arange(0.1, 2.5, 0.1):
-        for factor_norm in np.arange(0.1, 2.5, 0.1):
+    for factor_mult in np.arange(0.000000001, 2.5, 0.1):
+        for factor_norm in np.arange(0.000000001, 2.5, 0.1):
 
             # print(factor_mult, factor_norm)
             predict_proba_combined = (predict_proba * (1.001 - factor_mult)) * (data_multipliers * factor_mult)
@@ -81,10 +82,10 @@ def log_reg_combo_class(class_weights, predict_proba, y_predict, classes_log_reg
                 best_predict_proba_combined = predict_proba_combined
 
     print("\t\tcombo",
-          "mult lloss:", best_factor_mult_lloss,
-          "- norm lloss:", best_factor_norm_lloss,
-          "- mult acc:", best_factor_mult_acc,
-          "- norm acc:", best_factor_norm_acc)
+          "mult lloss: %.5f" % best_factor_mult_lloss,
+          "- norm lloss: %.5f" % best_factor_norm_lloss,
+          "- mult acc: %.5f" % best_factor_mult_acc,
+          "- norm acc: %.5f" % best_factor_norm_acc)
 
     return best_predict_combined, best_predict_proba_combined
 
@@ -118,11 +119,11 @@ def log_reg_sum_class(class_weights, predict_proba, y_predict, classes_log_reg):
     best_factor_mult_lloss = np.nan
     best_factor_undecided_lloss = np.nan
 
-    for factor_mult in np.arange(0.1, 2.5, 0.1):
-        for factor_undecided in np.arange(0.1, 0.5, 0.05):
+    for factor_mult in np.arange(0.000000001, 2.5, 0.1):
+        for factor_undecided in np.arange(0.000000001, 0.5, 0.05):
 
             predict_proba_sum = predict_proba
-            predict_proba_sum[np.max(predict_proba_sum, axis=1) < factor_undecided] += \
+            predict_proba_sum[np.average(predict_proba_sum, axis=1) < factor_undecided] += \
                 (1 + class_weights - np.average(class_weights)) * factor_mult
 
             # Avoid probabilities over 1.0 by normalising rows wich exceed
@@ -147,10 +148,10 @@ def log_reg_sum_class(class_weights, predict_proba, y_predict, classes_log_reg):
                 best_predict_proba_sum = predict_proba_sum
 
     print("\t\tsum  ",
-          "mult lloss:", best_factor_mult_lloss,
-          "- undc lloss:", best_factor_undecided_lloss,
-          "- mult acc:", best_factor_mult_acc,
-          "- undecided acc:", best_factor_undecided_acc)
+          "mult lloss: %.5f" % best_factor_mult_lloss,
+          "- undc lloss: %.5f" % best_factor_undecided_lloss,
+          "- mult acc: %.5f" % best_factor_mult_acc,
+          "- undecided acc: %.5f" % best_factor_undecided_acc)
 
     return best_predict_sum, best_predict_proba_sum
 
@@ -205,7 +206,7 @@ def run_test_classifiers():
         #                          labels=list(range(1, 11))))
 
         # Standard Logistic Regression
-        log_reg = LogisticRegression(solver=LOG_REG_SOLVER, n_jobs=12, max_iter=N_ITERATIONSgit .)
+        log_reg = LogisticRegression(solver=LOG_REG_SOLVER, n_jobs=12, max_iter=N_ITERATIONS)
         log_reg.fit(X_train, y_train)
         # print("log_reg classes:", log_reg.classes_, type(log_reg.classes_))
         predict_proba_log_reg = log_reg.predict_proba(X_test)
@@ -276,16 +277,19 @@ def run_test_classifiers():
 def test_suite():
     global MULTICLASS
     global LOG_REG_SOLVER
+    global N_ITERATIONS
 
-    for lr_solver in ['newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga']:
-        for multiclass in ['ovr', 'multinomial']:
-            MULTICLASS = multiclass
-            LOG_REG_SOLVER = lr_solver
-            try:
-                print("\n\nSolver: ", lr_solver, "- multiclass:", multiclass)
-                run_test_classifiers()
-            except Exception as e:
-                print("Catched:", str(e))
+    for max_iter in [50, 100, 200, 400, 500]:
+        for lr_solver in ['newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga']:
+            for multiclass in ['ovr', 'multinomial']:
+                MULTICLASS = multiclass
+                LOG_REG_SOLVER = lr_solver
+                N_ITERATIONS = max_iter
+                try:
+                    print("\n\nSolver: ", lr_solver, "- multiclass:", multiclass, "- max iter:", max_iter)
+                    run_test_classifiers()
+                except Exception as e:
+                    print("Catched:", str(e))
 
 
 if __name__ == "__main__":
